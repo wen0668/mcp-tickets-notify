@@ -19,10 +19,22 @@ pipeline {
     }
 
     environment {
-        RESULT_FILE = 'ticket_result.txt'
+        GIT_REPO     = 'git@github.com:wen0668/mcp-tickets-notify.git'
+        GIT_BRANCH   = 'main'
+        RESULT_FILE  = 'ticket_result.txt'
     }
 
     stages {
+
+        // ── 0. Checkout latest code ─────────────────────────
+        stage('Checkout') {
+            steps {
+                checkout([$class: 'GitSCM',
+                    branches: [[name: "${GIT_BRANCH}"]],
+                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                ])
+            }
+        }
 
         // ── 1. Query 12306 ──────────────────────────────────
         stage('Query Tickets') {
