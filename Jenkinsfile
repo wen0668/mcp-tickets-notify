@@ -19,6 +19,9 @@ pipeline {
     }
 
     environment {
+        // Bypass proxy for internal MCP service
+        no_proxy    = '192.168.0.4'
+        NO_PROXY    = '192.168.0.4'
         GIT_REPO     = 'https://github.com/wen0668/mcp-tickets-notify.git'
         GIT_BRANCH   = 'main'
         RESULT_FILE  = 'ticket_result.txt'
