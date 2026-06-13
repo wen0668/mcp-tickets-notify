@@ -19,7 +19,7 @@ pipeline {
     }
 
     environment {
-        GIT_REPO     = 'git@github.com:wen0668/mcp-tickets-notify.git'
+        GIT_REPO     = 'https://github.com/wen0668/mcp-tickets-notify.git'
         GIT_BRANCH   = 'main'
         RESULT_FILE  = 'ticket_result.txt'
     }
