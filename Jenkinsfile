@@ -16,7 +16,7 @@ pipeline {
                 description: 'MCP 12306 服务地址' )
         string( name: 'REMOTE_HOST',   defaultValue: '192.168.0.88',
                 description: '执行查询的远程主机 IP' )
-        string( name: 'REMOTE_USER',   defaultValue: 'steven',
+        string( name: 'REMOTE_USER',   defaultValue: 'liwenzhong',
                 description: 'SSH 登录用户名' )
         string( name: 'WECOM_WEBHOOK', defaultValue: '',
                 description: '企业微信机器人 Webhook URL（留空=不推送）' )
