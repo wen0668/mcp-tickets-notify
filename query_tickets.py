@@ -121,12 +121,9 @@ def filter_and_print_tickets(messages, args):
         elif current is not None and line.strip().startswith("-"):
             current["details"].append(line.strip())
     
-    # Filter entries
-    print("\n" + "=" * 70)
-    print("FILTERED RESULTS:")
-    print("=" * 70)
-    
+    # Filter entries — clean output, only train + seats
     found = False
+    output_lines = []
     for entry in entries:
         # Apply time filter
         if args.after_time and entry["start"] <= args.after_time:
@@ -153,13 +150,16 @@ def filter_and_print_tickets(messages, args):
             continue
         
         found = True
-        print(f"\n{entry['train']} {entry['route']} {entry['start']} -> {entry['end']}")
+        # Clean station names: remove telecode like "(telecode:XXX)"
+        clean_route = re.sub(r'\(telecode:\w+\)', '', entry['route'])
+        output_lines.append(f"{entry['train']} {clean_route.strip()} {entry['start']} -> {entry['end']}")
         for detail in available_details:
-            print(f"  {detail}")
+            output_lines.append(f"  {detail}")
     
-    if not found:
-        print("\nNo tickets found matching the specified criteria.")
-    print("=" * 70)
+    if found:
+        print("\n".join(output_lines))
+    else:
+        print("No tickets found")
 
 
 def run():
