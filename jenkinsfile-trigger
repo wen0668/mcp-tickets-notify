@@ -3,7 +3,7 @@ pipeline {
 
     triggers {
         // Every 5 minutes between 18:00-20:30, June 18 only
-        cron('H/5 18-20 18 6 *')
+        cron('H/15 * * * *')
     }
 
     parameters {
