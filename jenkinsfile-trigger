@@ -9,9 +9,9 @@ pipeline {
     parameters {
         string( name: 'DATE',          defaultValue: '2026-06-18',
                 description: '出发日期' )
-        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','茂名西','广州南','广州','广州东','广州白云','深圳北','电白','马踏'],
+        choice( name: 'FROM_STATION',  choices: ['广州南'],
                 description: '出发站' )
-        choice( name: 'TO_STATION',    choices: ['广州南','广州','广州东','广州白云','广州北','深圳北','茂名','茂名南'],
+        choice( name: 'TO_STATION',    choices: ['茂名'],
                 description: '到达站' )
         string( name: 'AFTER_TIME',    defaultValue: '18:30',
                 description: '最早出发时间' )
@@ -27,8 +27,6 @@ pipeline {
                 description: '执行查询的远程主机' )
         string( name: 'REMOTE_USER',   defaultValue: 'liwenzhong',
                 description: 'SSH 用户名' )
-        string( name: 'WECOM_WEBHOOK', defaultValue: '',
-                description: '企业微信 Webhook（有票才推送）' )
     }
 
     environment {
@@ -36,6 +34,7 @@ pipeline {
         GIT_BRANCH  = 'main'
         RESULT_FILE = 'ticket_result.html'
         SSH_OPTS    = '-o StrictHostKeyChecking=no -o ConnectTimeout=10'
+        WECHAT_WEBHOOK = credentials('wechat-webhook-url')        
     }
 
     stages {
@@ -78,7 +77,7 @@ pipeline {
         }
 
         stage('Notify WeChat') {
-            when { expression { params.WECOM_WEBHOOK?.trim() } }
+            when { expression { env.WECHAT_WEBHOOK?.trim() } }
             steps {
                 script {
                     def raw = readFile('/tmp/raw.txt').trim()
@@ -115,7 +114,7 @@ pipeline {
                     ])
 
                     sh """
-                        curl -s -X POST '${params.WECOM_WEBHOOK}' \
+                        curl -s -X POST '${env.WECHAT_WEBHOOK}' \
                             -H 'Content-Type: application/json' \
                             -d '${payload}'
                     """
