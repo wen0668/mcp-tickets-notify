@@ -1,29 +1,34 @@
 pipeline {
     agent any
 
+    triggers {
+        // Every 5 minutes between 18:00-20:30, June 18 only
+        cron('H/5 18-20 18 6 *')
+    }
+
     parameters {
-        string( name: 'DATE',          defaultValue: '',
-                description: '出发日期，如 2026-06-21（留空则默认明天）' )
-        choice( name: 'FROM_STATION',  choices: ['广州南','茂名南','茂名','广州','广州白云'],
+        string( name: 'DATE',          defaultValue: '2026-06-18',
+                description: '出发日期' )
+        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','茂名西','广州南','广州','广州东','广州白云','深圳北','电白','马踏'],
                 description: '出发站' )
-        choice( name: 'TO_STATION',    choices: ['茂名','茂名南','广州南','广州','广州白云'],
+        choice( name: 'TO_STATION',    choices: ['广州南','广州','广州东','广州白云','广州北','深圳北','茂名','茂名南'],
                 description: '到达站' )
-        string( name: 'AFTER_TIME',    defaultValue: '',
-                description: '最早出发时间，如 18:30（留空=不限）' )
-        string( name: 'BEFORE_TIME',   defaultValue: '',
-                description: '最晚出发时间，如 20:30（留空=不限）' )
+        string( name: 'AFTER_TIME',    defaultValue: '18:30',
+                description: '最早出发时间' )
+        string( name: 'BEFORE_TIME',   defaultValue: '20:30',
+                description: '最晚出发时间' )
         choice( name: 'SEAT_TYPE',     choices: ['全部','二等座','一等座','商务座','硬座','硬卧','软卧','无座'],
-                description: '只显示指定座级（全部=不过滤）' )
+                description: '指定座级' )
         choice( name: 'SHOW_MODE',     choices: ['仅显示有票','显示全部含无票'],
                 description: '显示模式' )
         string( name: 'HOST',          defaultValue: 'http://192.168.0.4:31234',
-                description: 'MCP 12306 服务地址' )
+                description: 'MCP 服务地址' )
         string( name: 'REMOTE_HOST',   defaultValue: '192.168.0.88',
-                description: '执行查询的远程主机 IP' )
+                description: '执行查询的远程主机' )
         string( name: 'REMOTE_USER',   defaultValue: 'liwenzhong',
-                description: 'SSH 登录用户名' )
+                description: 'SSH 用户名' )
         string( name: 'WECOM_WEBHOOK', defaultValue: '',
-                description: '企业微信机器人 Webhook URL（留空=不推送）' )
+                description: '企业微信 Webhook（有票才推送）' )
     }
 
     environment {
@@ -35,7 +40,6 @@ pipeline {
 
     stages {
 
-        // ── 0. Checkout ──────────────────────────────────────
         stage('Checkout') {
             steps {
                 checkout([$class: 'GitSCM',
@@ -45,35 +49,26 @@ pipeline {
             }
         }
 
-        // ── 1. Query via SSH to remote host ──────────────────
         stage('Query Tickets') {
             steps {
                 script {
-                    def rhost    = "${params.REMOTE_USER}@${params.REMOTE_HOST}"
-                    def queryDate = params.DATE ?: sh(
-                        script: "date -v+1d '+%Y-%m-%d' 2>/dev/null || date -d '+1 day' '+%Y-%m-%d'",
-                        returnStdout: true
-                    ).trim()
-
+                    def rhost = "${params.REMOTE_USER}@${params.REMOTE_HOST}"
                     def cmd = "python3 /tmp/query_tickets.py" +
                               " --host '${params.HOST}'" +
-                              " --date '${queryDate}'" +
+                              " --date '${params.DATE}'" +
                               " --from-station '${params.FROM_STATION}'" +
                               " --to-station '${params.TO_STATION}'" +
+                              " --after-time '${params.AFTER_TIME}'" +
+                              " --before-time '${params.BEFORE_TIME}'" +
                               " --timeout 20"
 
-                    if (params.AFTER_TIME)  { cmd += " --after-time '${params.AFTER_TIME}'" }
-                    if (params.BEFORE_TIME) { cmd += " --before-time '${params.BEFORE_TIME}'" }
                     if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { cmd += " --seat-type '${params.SEAT_TYPE}'" }
                     if (params.SHOW_MODE == '显示全部含无票') { cmd += " --show-all" }
-
-                    echo "Querying: ${cmd}"
 
                     sh """
                         scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/query_tickets.py
                         ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > /tmp/raw.txt
 
-                        # Wrap in HTML with UTF-8 charset so browser renders Chinese correctly
                         echo '<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{font-family:monospace}</style></head><body><pre>' > ${RESULT_FILE}
                         cat /tmp/raw.txt >> ${RESULT_FILE}
                         echo '</pre></body></html>' >> ${RESULT_FILE}
@@ -82,27 +77,36 @@ pipeline {
             }
         }
 
-        // ── 2. Send to WeChat Work ───────────────────────────
         stage('Notify WeChat') {
             when { expression { params.WECOM_WEBHOOK?.trim() } }
             steps {
                 script {
-                    def queryDate = params.DATE ?: sh(script: "date +%Y-%m-%d", returnStdout: true).trim()
-                    def result    = readFile('/tmp/raw.txt').trim()
-                    def summary   = result.length() > 2000 ? result.substring(0, 1997) + "..." : result
+                    def raw = readFile('/tmp/raw.txt').trim()
 
-                    def filterInfo = ""
-                    if (params.AFTER_TIME) { filterInfo += " ⏰${params.AFTER_TIME}后" }
-                    if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { filterInfo += " 💺${params.SEAT_TYPE}" }
+                    // Skip notification if no tickets found
+                    if (raw.contains('No tickets found')) {
+                        echo "No tickets — skipping WeChat notification"
+                        return
+                    }
+
+                    // Skip if only the header (no actual train entries)
+                    def lines = raw.readLines()
+                    def hasTrain = lines.any { it =~ /^\S+\s+.*\d{2}:\d{2}\s*->\s*\d{2}:\d{2}/ }
+                    if (!hasTrain) {
+                        echo "No train data — skipping WeChat notification"
+                        return
+                    }
+
+                    def summary = raw.length() > 1800 ? raw.substring(0, 1797) + "..." : raw
 
                     def markdown = """\
-                        ## 🚄 12306 余票查询
-                        **${params.FROM_STATION} → ${params.TO_STATION}** | ${queryDate}${filterInfo}
+                        ## 🚄 有票提醒
+                        **${params.FROM_STATION} → ${params.TO_STATION}** | ${params.DATE} ⏰${params.AFTER_TIME}-${params.BEFORE_TIME}
                         ---
                         ```
                         ${summary}
                         ```
-                        > 查询节点: ${params.REMOTE_HOST} | [Jenkins](${env.BUILD_URL})
+                        > [Jenkins](${env.BUILD_URL})
                         """.stripIndent()
 
                     def payload = groovy.json.JsonOutput.toJson([
@@ -115,7 +119,7 @@ pipeline {
                             -H 'Content-Type: application/json' \
                             -d '${payload}'
                     """
-                    echo "→ WeChat notification sent"
+                    echo "→ WeChat notification sent (only available tickets)"
                 }
             }
         }

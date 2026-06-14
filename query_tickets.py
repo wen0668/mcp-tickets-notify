@@ -58,7 +58,8 @@ def parse_args():
     parser.add_argument("--date", required=True, help="Travel date, e.g. 2026-06-21")
     parser.add_argument("--from-station", required=True, dest="from_station", help="Departure station name")
     parser.add_argument("--to-station", required=True, dest="to_station", help="Arrival station name")
-    parser.add_argument("--after-time", dest="after_time", help="Only show trains departing after HH:MM, e.g. 19:30")
+    parser.add_argument("--after-time", dest="after_time", help="Only show trains departing after HH:MM, e.g. 18:30")
+    parser.add_argument("--before-time", dest="before_time", help="Only show trains departing before HH:MM, e.g. 20:30")
     parser.add_argument("--seat-type", dest="seat_type", help="Only show specified seat type, e.g. 二等座 or 一等座")
     parser.add_argument("--timeout", type=int, default=20, help="Timeout seconds for SSE and message response")
     parser.add_argument("--only-available", dest="only_available", action="store_true", default=True,
@@ -129,6 +130,8 @@ def filter_and_print_tickets(messages, args):
     for entry in entries:
         # Apply time filter
         if args.after_time and entry["start"] <= args.after_time:
+            continue
+        if args.before_time and entry["start"] >= args.before_time:
             continue
         
         # Filter details: only keep available seats
