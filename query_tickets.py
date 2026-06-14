@@ -61,6 +61,10 @@ def parse_args():
     parser.add_argument("--after-time", dest="after_time", help="Only show trains departing after HH:MM, e.g. 19:30")
     parser.add_argument("--seat-type", dest="seat_type", help="Only show specified seat type, e.g. 二等座 or 一等座")
     parser.add_argument("--timeout", type=int, default=20, help="Timeout seconds for SSE and message response")
+    parser.add_argument("--only-available", dest="only_available", action="store_true", default=True,
+                        help="Only show trains with at least one available seat (default: on)")
+    parser.add_argument("--show-all", dest="only_available", action="store_false",
+                        help="Show all trains including fully-booked ones")
     return parser.parse_args()
 
 
@@ -127,25 +131,28 @@ def filter_and_print_tickets(messages, args):
         if args.after_time and entry["start"] <= args.after_time:
             continue
         
-        # Apply seat type filter
-        if args.seat_type:
-            seat_available = False
-            for detail in entry["details"]:
-                if f"- {args.seat_type}:" in detail and "无票" not in detail:
-                    seat_available = True
-                    break
-            if not seat_available:
-                continue
+        # Filter details: only keep available seats
+        available_details = []
+        for detail in entry["details"]:
+            has_ticket = "无票" not in detail
+            if args.seat_type:
+                # Specific seat type: must match AND have tickets
+                if f"- {args.seat_type}:" in detail:
+                    if has_ticket or not args.only_available:
+                        available_details.append(detail)
+            else:
+                # All seat types: keep if has tickets (or show-all mode)
+                if has_ticket or not args.only_available:
+                    available_details.append(detail)
+        
+        # Skip if no available seats (and only-available mode)
+        if args.only_available and not available_details:
+            continue
         
         found = True
         print(f"\n{entry['train']} {entry['route']} {entry['start']} -> {entry['end']}")
-        for detail in entry["details"]:
-            # Only print the requested seat type if specified, or all if not
-            if args.seat_type:
-                if f"- {args.seat_type}:" in detail:
-                    print(f"  {detail}")
-            else:
-                print(f"  {detail}")
+        for detail in available_details:
+            print(f"  {detail}")
     
     if not found:
         print("\nNo tickets found matching the specified criteria.")

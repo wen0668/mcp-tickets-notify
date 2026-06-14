@@ -4,14 +4,16 @@ pipeline {
     parameters {
         string( name: 'DATE',          defaultValue: '',
                 description: '出发日期，如 2026-06-21（留空则默认明天）' )
-        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','茂名西','广州南','广州','广州东','广州白云','深圳北','电白','马踏'],
+        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','广州南','广州','广州白云'],
                 description: '出发站' )
-        choice( name: 'TO_STATION',    choices: ['广州南','广州','广州东','广州白云','广州北','深圳北','茂名','茂名南'],
+        choice( name: 'TO_STATION',    choices: ['茂名','茂名南','广州南','广州','广州白云'],
                 description: '到达站' )
         string( name: 'AFTER_TIME',    defaultValue: '',
                 description: '只显示该时间后的车次，如 18:30（留空=全部）' )
         choice( name: 'SEAT_TYPE',     choices: ['全部','二等座','一等座','商务座','硬座','硬卧','软卧','无座'],
                 description: '只显示指定座级（全部=不过滤）' )
+        choice( name: 'SHOW_MODE',     choices: ['仅显示有票','显示全部含无票'],
+                description: '显示模式' )
         string( name: 'HOST',          defaultValue: 'http://192.168.0.4:31234',
                 description: 'MCP 12306 服务地址' )
         string( name: 'REMOTE_HOST',   defaultValue: '192.168.0.88',
@@ -60,6 +62,7 @@ pipeline {
 
                     if (params.AFTER_TIME) { cmd += " --after-time '${params.AFTER_TIME}'" }
                     if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { cmd += " --seat-type '${params.SEAT_TYPE}'" }
+                    if (params.SHOW_MODE == '显示全部含无票') { cmd += " --show-all" }
 
                     echo "Querying: ${cmd}"
 
