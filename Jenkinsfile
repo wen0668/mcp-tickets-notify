@@ -4,14 +4,14 @@ pipeline {
     parameters {
         string( name: 'DATE',          defaultValue: '',
                 description: '出发日期，如 2026-06-21（留空则默认明天）' )
-        string( name: 'FROM_STATION',  defaultValue: '茂名',
-                description: '出发站，如 茂名、广州南' )
-        string( name: 'TO_STATION',    defaultValue: '广州南',
-                description: '到达站，如 广州南、深圳北' )
+        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','茂名西','广州南','广州','广州东','广州白云','深圳北','电白','马踏'],
+                description: '出发站' )
+        choice( name: 'TO_STATION',    choices: ['广州南','广州','广州东','广州白云','广州北','深圳北','茂名','茂名南'],
+                description: '到达站' )
         string( name: 'AFTER_TIME',    defaultValue: '',
                 description: '只显示该时间后的车次，如 18:30（留空=全部）' )
-        string( name: 'SEAT_TYPE',     defaultValue: '',
-                description: '只显示指定座级，如 二等座、一等座（留空=全部）' )
+        choice( name: 'SEAT_TYPE',     choices: ['全部','二等座','一等座','商务座','硬座','硬卧','软卧','无座'],
+                description: '只显示指定座级（全部=不过滤）' )
         string( name: 'HOST',          defaultValue: 'http://192.168.0.4:31234',
                 description: 'MCP 12306 服务地址' )
         string( name: 'REMOTE_HOST',   defaultValue: '192.168.0.88',
@@ -59,7 +59,7 @@ pipeline {
                               " --timeout 20"
 
                     if (params.AFTER_TIME) { cmd += " --after-time '${params.AFTER_TIME}'" }
-                    if (params.SEAT_TYPE)  { cmd += " --seat-type '${params.SEAT_TYPE}'" }
+                    if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { cmd += " --seat-type '${params.SEAT_TYPE}'" }
 
                     echo "Querying: ${cmd}"
 
@@ -82,7 +82,7 @@ pipeline {
 
                     def filterInfo = ""
                     if (params.AFTER_TIME) { filterInfo += " ⏰${params.AFTER_TIME}后" }
-                    if (params.SEAT_TYPE)  { filterInfo += " 💺${params.SEAT_TYPE}" }
+                    if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { filterInfo += " 💺${params.SEAT_TYPE}" }
 
                     def markdown = """\
                         ## 🚄 12306 余票查询
