@@ -25,7 +25,7 @@ pipeline {
     environment {
         GIT_REPO    = 'https://github.com/wen0668/mcp-tickets-notify.git'
         GIT_BRANCH  = 'main'
-        RESULT_FILE = 'ticket_result.txt'
+        RESULT_FILE = 'ticket_result.html'
         SSH_OPTS    = '-o StrictHostKeyChecking=no -o ConnectTimeout=10'
     }
 
@@ -65,7 +65,12 @@ pipeline {
 
                     sh """
                         scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/query_tickets.py
-                        ssh ${SSH_OPTS} '${rhost}' '${cmd}' | tee ${RESULT_FILE}
+                        ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > /tmp/raw.txt
+
+                        # Wrap in HTML with UTF-8 charset so browser renders Chinese correctly
+                        echo '<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{font-family:monospace}</style></head><body><pre>' > ${RESULT_FILE}
+                        cat /tmp/raw.txt >> ${RESULT_FILE}
+                        echo '</pre></body></html>' >> ${RESULT_FILE}
                     """
                 }
             }
@@ -77,7 +82,7 @@ pipeline {
             steps {
                 script {
                     def queryDate = params.DATE ?: sh(script: "date +%Y-%m-%d", returnStdout: true).trim()
-                    def result    = readFile(RESULT_FILE).trim()
+                    def result    = readFile('/tmp/raw.txt').trim()
                     def summary   = result.length() > 2000 ? result.substring(0, 1997) + "..." : result
 
                     def filterInfo = ""
