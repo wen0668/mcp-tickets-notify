@@ -4,7 +4,7 @@ pipeline {
     parameters {
         string( name: 'DATE',          defaultValue: '',
                 description: '出发日期，如 2026-06-21（留空则默认明天）' )
-        choice( name: 'FROM_STATION',  choices: ['茂名','茂名南','广州南','广州','广州白云'],
+        choice( name: 'FROM_STATION',  choices: ['广州南','茂名南','茂名','广州','广州白云'],
                 description: '出发站' )
         choice( name: 'TO_STATION',    choices: ['茂名','茂名南','广州南','广州','广州白云'],
                 description: '到达站' )
