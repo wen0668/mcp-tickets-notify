@@ -59,7 +59,7 @@ pipeline {
                               " --to-station '${params.TO_STATION}'" +
                               " --after-time '${params.AFTER_TIME}'" +
                               " --before-time '${params.BEFORE_TIME}'" +
-                              " --timeout 20"
+                              " --timeout 20 --quiet"
 
                     if (params.SEAT_TYPE && params.SEAT_TYPE != '全部') { cmd += " --seat-type '${params.SEAT_TYPE}'" }
                     if (params.SHOW_MODE == '显示全部含无票') { cmd += " --show-all" }

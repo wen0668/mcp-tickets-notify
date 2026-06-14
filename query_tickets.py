@@ -66,6 +66,7 @@ def parse_args():
                         help="Only show trains with at least one available seat (default: on)")
     parser.add_argument("--show-all", dest="only_available", action="store_false",
                         help="Show all trains including fully-booked ones")
+    parser.add_argument("--quiet", action="store_true", help="Suppress debug/log output, print only results")
     return parser.parse_args()
 
 
@@ -176,7 +177,11 @@ def run():
         "last_event": None,
     }
 
-    print(f"Opening SSE session: {sse_url}")
+    def log(msg):
+        if not args.quiet:
+            print(msg)
+
+    log(f"Opening SSE session: {sse_url}")
     reader = SessionReader(sse_url, result)
     reader.start()
 
@@ -198,15 +203,15 @@ def run():
     payload = build_payload(args.date, args.from_station, args.to_station)
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
-    print(f"Sending ticket query to: {message_url}")
+    log(f"Sending ticket query to: {message_url}")
     req = Request(message_url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
 
     try:
         with urlopen(req, timeout=args.timeout) as resp:
             resp_text = resp.read().decode("utf-8", errors="replace")
-            print("POST response:")
-            print(resp_text)
+            log("POST response:")
+            log(resp_text)
     except HTTPError as exc:
         print(f"HTTP error: {exc.code} {exc.reason}", file=sys.stderr)
         try:
@@ -220,31 +225,19 @@ def run():
         result["stop"].set()
         sys.exit(1)
 
-    print("Waiting for SSE message response...")
+    log("Waiting for SSE message response...")
     if result["message_received"].wait(args.timeout):
         messages = result.get("messages", [])
-        if args.after_time or args.seat_type:
-            # Run filtered output if filters specified
-            filter_and_print_tickets(messages, args)
-        else:
-            # Show full output if no filters
-            print("SSE message received:")
-            for msg in messages:
-                print(json.dumps(msg, ensure_ascii=False, indent=2))
+        filter_and_print_tickets(messages, args)
     else:
         print("WARNING: no SSE response message received within timeout", file=sys.stderr)
         messages = result.get("messages", [])
         if messages:
-            if args.after_time or args.seat_type:
-                filter_and_print_tickets(messages, args)
-            else:
-                print("Partial SSE messages:")
-                for msg in messages:
-                    print(json.dumps(msg, ensure_ascii=False, indent=2))
+            filter_and_print_tickets(messages, args)
 
     result["stop"].set()
     time.sleep(0.2)
-    print("Done.")
+    log("Done.")
 
 
 if __name__ == "__main__":

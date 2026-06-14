@@ -60,7 +60,7 @@ pipeline {
                               " --date '${queryDate}'" +
                               " --from-station '${params.FROM_STATION}'" +
                               " --to-station '${params.TO_STATION}'" +
-                              " --timeout 20"
+                              " --timeout 20 --quiet"
 
                     if (params.AFTER_TIME)  { cmd += " --after-time '${params.AFTER_TIME}'" }
                     if (params.BEFORE_TIME) { cmd += " --before-time '${params.BEFORE_TIME}'" }
