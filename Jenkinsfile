@@ -55,7 +55,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    def cmd = "python3 /tmp/query_tickets.py" +
+                    def cmd = "python3 /tmp/jenkins-tickets/query_tickets.py" +
                               " --host '${params.HOST}'" +
                               " --date '${queryDate}'" +
                               " --from-station '${params.FROM_STATION}'" +
@@ -70,12 +70,13 @@ pipeline {
                     echo "Querying: ${cmd}"
 
                     sh """
-                        scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/query_tickets.py
-                        ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > /tmp/raw.txt
+                        ssh ${SSH_OPTS} '${rhost}' 'mkdir -p /tmp/jenkins-tickets'
+                        scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/jenkins-tickets/query_tickets.py
+                        ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > ${WORKSPACE}/raw.txt
 
                         # Wrap in HTML with UTF-8 charset so browser renders Chinese correctly
                         echo '<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{font-family:monospace}</style></head><body><pre>' > ${RESULT_FILE}
-                        cat /tmp/raw.txt >> ${RESULT_FILE}
+                        cat ${WORKSPACE}/raw.txt >> ${RESULT_FILE}
                         echo '</pre></body></html>' >> ${RESULT_FILE}
                     """
                 }
@@ -88,7 +89,7 @@ pipeline {
             steps {
                 script {
                     def queryDate = params.DATE ?: sh(script: "date +%Y-%m-%d", returnStdout: true).trim()
-                    def result    = readFile('/tmp/raw.txt').trim()
+                    def result    = readFile("${WORKSPACE}/raw.txt").trim()
                     def summary   = result.length() > 2000 ? result.substring(0, 1997) + "..." : result
 
                     def filterInfo = ""

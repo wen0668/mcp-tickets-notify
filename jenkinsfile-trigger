@@ -52,7 +52,7 @@ pipeline {
             steps {
                 script {
                     def rhost = "${params.REMOTE_USER}@${params.REMOTE_HOST}"
-                    def cmd = "python3 /tmp/query_tickets.py" +
+                    def cmd = "python3 /tmp/jenkins-tickets/query_tickets.py" +
                               " --host '${params.HOST}'" +
                               " --date '${params.DATE}'" +
                               " --from-station '${params.FROM_STATION}'" +
@@ -65,11 +65,12 @@ pipeline {
                     if (params.SHOW_MODE == '显示全部含无票') { cmd += " --show-all" }
 
                     sh """
-                        scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/query_tickets.py
-                        ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > /tmp/raw.txt
+                        ssh ${SSH_OPTS} '${rhost}' 'mkdir -p /tmp/jenkins-tickets'
+                        scp ${SSH_OPTS} query_tickets.py '${rhost}':/tmp/jenkins-tickets/query_tickets.py
+                        ssh ${SSH_OPTS} '${rhost}' 'export LANG=zh_CN.UTF-8 PYTHONIOENCODING=utf-8; ${cmd}' > ${WORKSPACE}/raw.txt
 
                         echo '<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{font-family:monospace}</style></head><body><pre>' > ${RESULT_FILE}
-                        cat /tmp/raw.txt >> ${RESULT_FILE}
+                        cat ${WORKSPACE}/raw.txt >> ${RESULT_FILE}
                         echo '</pre></body></html>' >> ${RESULT_FILE}
                     """
                 }
@@ -80,7 +81,7 @@ pipeline {
             when { expression { env.WECHAT_WEBHOOK?.trim() } }
             steps {
                 script {
-                    def raw = readFile('/tmp/raw.txt').trim()
+                    def raw = readFile("${WORKSPACE}/raw.txt").trim()
 
                     // Skip notification if no tickets found
                     if (raw.contains('No tickets found')) {
