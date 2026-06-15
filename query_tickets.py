@@ -132,6 +132,15 @@ def filter_and_print_tickets(messages, args):
         if args.before_time and entry["start"] >= args.before_time:
             continue
         
+        # Apply exact station filter
+        # Route format: "广州南(telecode:IZQ) -> 茂名(telecode:MDQ)"
+        route_parts = entry["route"].split("->")
+        if len(route_parts) == 2:
+            dep_station = re.sub(r'\(telecode:\w+\)', '', route_parts[0]).strip()
+            arr_station = re.sub(r'\(telecode:\w+\)', '', route_parts[1]).strip()
+            if dep_station != args.from_station or arr_station != args.to_station:
+                continue
+        
         # Filter details: only keep available seats
         available_details = []
         for detail in entry["details"]:
